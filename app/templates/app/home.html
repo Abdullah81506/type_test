@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Typing Test - Home</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">
+
+</head>
+<body>
+
+    <h1 style="text-align: center; font-size: 36px; margin-bottom: 10px;">Typing Master</h1>
+
+    <h2>Select Difficulty</h2>
+
+    <form action="{% url 'typing_test' %}" method="get" class="difficulty-form">
+        <button type="submit" name="difficulty" value="easy">Easy</button>
+        <button type="submit" name="difficulty" value="beginner">Beginner</button>
+        <button type="submit" name="difficulty" value="hard">Hard</button>
+    </form>
+
+    {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}" class="logout-form">
+            {% csrf_token %}
+            <button type="submit">Logout</button>
+        </form>
+    {% endif %}
+
+</body>
+</html>

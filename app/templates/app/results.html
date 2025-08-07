@@ -1,0 +1,139 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Typing Results</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">
+
+</head>
+<body>
+
+    <h2>Your Typing Results</h2>
+
+    <!-- Stats Section -->
+    <div class="stats-container">
+        <div class="stat-box speed">
+            <strong>{{ gross_wpm }}</strong>
+            <div class="stat-label">WPM</div>
+            <div class="stat-extra">Typing Speed</div>
+        </div>
+        <div class="stat-box accuracy">
+            <strong>{{ accuracy }}%</strong>
+            <div class="stat-label">Accuracy</div>
+            <div class="stat-extra">
+                {{ typos }} typo{{ typos|pluralize }}
+            </div>
+        </div>
+        <div class="stat-box net">
+            <strong>{{ net_wpm }}</strong>
+            <div class="stat-label">WPM</div>
+            <div class="stat-extra">Net Speed</div>
+        </div>
+    </div>
+
+    <div class="evaluation" id="evaluation"></div>
+    
+    <div id="wpmChart">
+        <canvas id="wpmCanvas"></canvas>
+    </div>
+    
+    <a class="btn-back" href="{% url 'home' %}">← Back to Home</a>
+
+   <script>
+    const labels = {{ labels|safe }};
+    const wpmData = {{ wpm_data|safe }};
+
+    const maxWPM = Math.max(...wpmData);
+    const maxIndex = wpmData.indexOf(maxWPM);
+
+    const ctx = document.getElementById('wpmCanvas').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'WPM',
+                data: wpmData,
+                backgroundColor: function(context) {
+                    return context.dataIndex === maxIndex ? '#6fffd2' : '#a0ffe6';
+                },
+                borderRadius: 10,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    ticks: {
+                        stepSize: 10,
+                        color: '#ffffcc',
+                        font: {
+                            weight: 'bold'
+                        },
+                        callback: function(value) {
+                            // Show custom labels at certain Y-values
+                            const levels = {
+                                20: 'Slow',
+                                40: 'Average',
+                                60: 'Fluent',
+                                80: 'Fast',
+                                90: 'Pro'
+                            };
+                            return levels[value] || ''; // Empty string for others
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            weight: 'bold'
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.05)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.raw} WPM`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+     // Evaluation based on WPM
+    let evaluationText = '';
+    const wpm = {{ gross_wpm|default:0 }};
+
+    if (wpm < 20) {
+        evaluationText = "Beginner – Keep practicing!";
+    } else if (wpm < 40) {
+        evaluationText = "Intermediate – You're getting there.";
+    } else if (wpm < 60) {
+        evaluationText = "Advanced – Nice typing!";
+    } else {
+        evaluationText = "Expert – You're a typing pro!";
+    }
+
+    document.getElementById('evaluation').textContent = evaluationText;
+</script>
+    
+
+
+</body>
+</html>

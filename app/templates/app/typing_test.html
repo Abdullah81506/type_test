@@ -1,0 +1,206 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Typing Test</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">
+
+</head>
+<body>
+
+    <h2>Difficulty: {{ difficulty|title }}</h2>
+
+    <div id="timer">Time left: 60s</div>
+
+    <p><strong>Paragraph:</strong></p>
+    <p id="text">{{ paragraph }}</p>
+
+    <textarea id="input-box" rows="8" cols="100" placeholder="Start typing here..." autofocus></textarea> <br>
+
+    <button id="restart-btn">Restart Test</button>
+
+    <script> 
+        // variables to hold the input box, timer display, and text element
+        const inputBox = document.getElementById('input-box');
+        const timerDisplay = document.getElementById('timer');
+        const textElement = document.getElementById('text');
+        // variables to manage the typing test state
+        let started = false;
+        let timeLeft = 60;
+        let timer;
+        // variables to track the typing performance
+        let totalCorrectWords = 0;
+        let totalTypedWords = 0;
+        let paragraphProcessed = false; // flag to indicate if the paragraph has been processed 
+        let currentParagraph = ""; // variable to hold the current paragraph text
+        let expectedWords = []; // array to hold the expected words from the paragraph
+
+        const difficulty = "{{ difficulty }}"; // get the difficulty level from the Django template context
+
+        function getCookie(name) { // function to get the CSRF token from cookies
+            const value = `; ${document.cookie}`; 
+            const parts = value.split(`; ${name}=`); // split the cookie string to find the CSRF token
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        function initializeParagraph(text) { // function to initialize the paragraph for the typing test
+            currentParagraph = text.trim(); 
+            expectedWords = currentParagraph.split(/\s+/).filter(w => w.length > 0); // split the paragraph into words and filter out any empty strings
+            textElement.textContent = currentParagraph; 
+            textElement.classList.remove('loading');  // remove the loading class from fetchNewParagraph() to show the paragraph 
+            inputBox.value = "";
+            paragraphProcessed = false;
+        }
+
+        function startTimer() {
+            totalCorrectWords = 0;
+            totalTypedWords = 0;
+            started = true;
+
+            timer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.innerText = `Time left: ${timeLeft}s`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    inputBox.disabled = true;
+                    saveAndRedirect();
+                }
+            }, 1000);
+        }
+
+        function fetchNewParagraph() {
+            textElement.classList.add('loading'); // add a loading class to the text element to indicate that a new paragraph is being fetched which is importatnt 
+            textElement.textContent = "Loading next paragraph..."; 
+            inputBox.disabled = true;
+
+            fetch(`/get_paragraph/?difficulty=${difficulty}`, {
+                credentials: 'include' // include credentials to send the CSRF token with the request
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.paragraph) {
+                    throw new Error("No paragraph in response");
+                }
+                initializeParagraph(data.paragraph);
+                inputBox.disabled = false;
+                inputBox.focus(); // focus the input box after loading the new paragraph
+            })
+            .catch(error => {
+                console.error("Fetch error:", error);
+                textElement.textContent = "Error loading paragraph. Please refresh.";
+                textElement.classList.remove('loading');
+                inputBox.disabled = false;
+                inputBox.focus();
+            });
+        }
+
+        function processParagraph() {
+            const typedText = inputBox.value.trim(); // get the text typed by the user
+            const typedWords = typedText.split(/\s+/).filter(w => w.length > 0); // split the typed text into words and filter out any empty strings
+
+            let correctCount = 0; // count the number of correctly typed words
+            for (let i = 0; i < typedWords.length && i < expectedWords.length; i++) { // loop through the typed words and compare them with the expected words
+                if (typedWords[i] === expectedWords[i]) {
+                    correctCount++;
+                }
+            }
+            // update the total correct words and total typed words
+            totalCorrectWords += correctCount;
+            totalTypedWords += typedWords.length;
+        }
+
+        function checkIfParagraphFinished() { 
+            const typedText = inputBox.value.trim();
+            const typedWords = typedText.split(/\s+/).filter(w => w.length > 0); 
+            const expectedText = expectedWords.join(" "); // join the expected words to form the expected text
+
+            if ( // check if the typed words match the expected words and if the input box ends with a space or the typed text matches the expected text
+                typedWords.length === expectedWords.length &&
+                (inputBox.value.endsWith(" ") || typedText === expectedText) &&
+                !paragraphProcessed
+            ) {
+                processParagraph();
+                paragraphProcessed = true;
+                inputBox.value = ""; // clear the input box after processing the paragraph
+
+                if (timeLeft > 5) fetchNewParagraph();
+                else endTest();
+            }
+        }
+
+        function saveAndRedirect() {
+            if (!paragraphProcessed) {
+                processParagraph();
+            }
+
+            const wpm = totalTypedWords;
+            const netSpeed = totalCorrectWords;
+            const accuracy = totalTypedWords > 0  // check if any words were typed to avoid division by zero
+                ? Math.round((totalCorrectWords / totalTypedWords) * 100) 
+                : 0;
+            const typos = totalTypedWords - totalCorrectWords;
+
+            fetch('/save_result/', { // send the typing results to the server
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify({ // send the typing results as JSON
+                    difficulty: difficulty,
+                    wpm: wpm,
+                    accuracy: accuracy,
+                    typos: typos
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                window.location.href = `/results/?wpm=${wpm}&netSpeed=${netSpeed}&accuracy=${accuracy}&typos=${typos}`;
+            })
+            .catch(error => { // handle any errors that occur while saving the results
+                console.error('Error saving results:', error);
+                localStorage.setItem('wpm', wpm);
+                localStorage.setItem('netSpeed', netSpeed);
+                localStorage.setItem('accuracy', accuracy);
+                localStorage.setItem('typos', typos);
+                window.location.href = `/results/?wpm=${wpm}&netSpeed=${netSpeed}&accuracy=${accuracy}&typos=${typos}`;
+            });
+        }
+
+        inputBox.addEventListener('input', () => { // handle input events in the input box
+            if (!started) {
+                startTimer();
+            }
+            checkIfParagraphFinished();
+        });
+
+        document.getElementById('restart-btn').addEventListener('click', () => { // handle click events on the restart button
+            window.location.href = `/typing/?difficulty=${difficulty}`;
+        });
+
+        window.addEventListener('DOMContentLoaded', () => { // handle the DOMContentLoaded event to initialize the typing test
+            if (localStorage.getItem('wpm')) {
+                const wpm = localStorage.getItem('wpm');
+                const netSpeed = localStorage.getItem('netSpeed');
+                const accuracy = localStorage.getItem('accuracy');
+                const typos = localStorage.getItem('typos');
+                
+                localStorage.removeItem('wpm');
+                localStorage.removeItem('netSpeed');
+                localStorage.removeItem('accuracy');
+                localStorage.removeItem('typos');
+                
+                window.location.href = `/results?wpm=${wpm}&netSpeed=${netSpeed}&accuracy=${accuracy}&typos=${typos}`;
+            } else {
+                initializeParagraph("{{ paragraph }}");
+            }
+        });
+    </script>
+</body>
+</html>
