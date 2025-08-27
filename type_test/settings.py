@@ -85,15 +85,19 @@ if DEBUG:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+# Change this in your else clause for databases:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+            'ENGINE': 'django.db.backends.mysql',
             'NAME': config('DB_NAME', default=''),
             'USER': config('DB_USER', default=''),
             'PASSWORD': config('DB_PASSWORD', default=''),
             'HOST': config('DB_HOST', default=''),
             'PORT': config('DB_PORT', default=''),
+            'OPTIONS': {
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
         }
     }
 
@@ -145,3 +149,13 @@ LOGIN_URL = '/accounts/login/' # only needed when using the @login_required deco
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Security settings for production
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
