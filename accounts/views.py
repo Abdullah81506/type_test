@@ -10,7 +10,7 @@ def register_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        confirm_password = request.POST.get('confirm_password')
+        confirm_password = request.POST.get('confirm')
 
         if password != confirm_password:
             messages.error(request, "Passwords do not match.")
