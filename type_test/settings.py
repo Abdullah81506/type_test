@@ -28,6 +28,7 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.pythonanywhere.com', cast=Csv())
+CSRF_TRUSTED_ORIGINS = ['https://typetest-production.up.railway.app']
 
 
 # Application definition
@@ -77,23 +78,16 @@ WSGI_APPLICATION = 'type_test.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Database
-if DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('PGDATABASE', default=''),
+        'USER': config('PGUSER', default=''),
+        'PASSWORD': config('PGPASSWORD', default=''),
+        'HOST': config('PGHOST', default=''),
+        'PORT': config('PGPORT', default=''),
     }
-# Change this in your else clause for databases:
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',  # Keep using SQLite for now
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-
+}
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
